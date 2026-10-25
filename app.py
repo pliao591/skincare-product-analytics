@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -17,6 +18,10 @@ if uploaded_file:
 
     numeric_cols = df.select_dtypes(include="number").columns.tolist()
 
+    if not numeric_cols:
+        st.error("This file has no numeric columns to analyze.")
+        st.stop()
+
     st.subheader("Data Preview")
     st.write(f"Number of products: {len(df):,}")
     st.dataframe(df.head(10), hide_index=True, width="stretch")
@@ -29,13 +34,25 @@ if uploaded_file:
     )
 
     if chart_type == "Histogram":
-        fig = px.histogram(df, x=variable, title=f"Distribution of {variable}")
+        fig = px.histogram(
+            df, x=variable, title=f"Distribution of {variable}"
+        )
     elif chart_type == "Line chart":
-        fig = px.line(df, y=variable, title=f"{variable} across products")
+        fig = px.line(
+            df, y=variable, title=f"{variable} across products"
+        )
     else:
         x_options = [col for col in numeric_cols if col != variable]
+
+        if not x_options:
+            st.error("Need at least two numeric columns for a scatter plot.")
+            st.stop()
+
         x_col = st.selectbox("Choose the x-axis", x_options)
-        fig = px.scatter(df, x=x_col, y=variable, title=f"{variable} versus {x_col}")
+        fig = px.scatter(
+            df, x=x_col, y=variable,
+            title=f"{variable} versus {x_col}"
+        )
 
     st.plotly_chart(fig, width="stretch")
 
@@ -53,6 +70,11 @@ if uploaded_file:
     )
 
     x2_options = [col for col in feature_options if col != x1_col]
+
+    if not x2_options:
+        st.error("Need at least two numeric columns for regression.")
+        st.stop()
+
     x2_col = st.selectbox(
         "Input 2",
         x2_options,
@@ -60,7 +82,15 @@ if uploaded_file:
         if "loves_count" in x2_options else 0
     )
 
-    y_options = [col for col in feature_options if col not in [x1_col, x2_col]]
+    y_options = [
+        col for col in feature_options
+        if col not in [x1_col, x2_col]
+    ]
+
+    if not y_options:
+        st.error("Need at least three numeric columns for regression.")
+        st.stop()
+
     default_target = "rating" if "rating" in y_options else y_options[0]
     y_col = st.selectbox(
         "Target to predict",
@@ -82,45 +112,46 @@ if uploaded_file:
 
     st.metric("R² on this data", f"{model.score(x, y):.3f}")
     st.write(f"Rows used for training: {len(data):,}")
-  
-st.subheader("Try a Prediction")
 
-input1 = st.number_input(
-    f"Enter {x1_col}",
-    value=float(data[x1_col].mean())
-)
+    st.subheader("Try a Prediction")
 
-input2 = st.number_input(
-    f"Enter {x2_col}",
-    value=float(data[x2_col].mean())
-)
-
-new_data = pd.DataFrame({
-    x1_col: [input1],
-    x2_col: [input2]
-})
-
-prediction = model.predict(new_data)[0]
-
-st.metric(f"Predicted {y_col}", f"{prediction:.2f}")
-
-outside_range = (
-    input1 < data[x1_col].min()
-    or input1 > data[x1_col].max()
-    or input2 < data[x2_col].min()
-    or input2 > data[x2_col].max()
-)
-
-if outside_range:
-    st.warning(
-        "One or more inputs are outside the range of the training data. "
-        "Treat this prediction with caution."
+    input1 = st.number_input(
+        f"Enter {x1_col}",
+        value=float(data[x1_col].mean())
     )
 
-st.caption(
-    "This model estimates a numeric product outcome from two selected variables. "
-    "Predictions may be inaccurate because other factors may affect the outcome, "
-    "and linear regression assumes a linear relationship."
-)
+    input2 = st.number_input(
+        f"Enter {x2_col}",
+        value=float(data[x2_col].mean())
+    )
+
+    new_data = pd.DataFrame({
+        x1_col: [input1],
+        x2_col: [input2]
+    })
+
+    prediction = model.predict(new_data)[0]
+    st.metric(f"Predicted {y_col}", f"{prediction:.2f}")
+
+    outside_range = (
+        input1 < data[x1_col].min()
+        or input1 > data[x1_col].max()
+        or input2 < data[x2_col].min()
+        or input2 > data[x2_col].max()
+    )
+
+    if outside_range:
+        st.warning(
+            "One or more inputs are outside the range of the training data. "
+            "Treat this prediction with caution."
+        )
+
+    st.caption(
+        "This model estimates a numeric product outcome from two selected "
+        "variables. Predictions may be inaccurate because other factors "
+        "may affect the outcome, and linear regression assumes a linear "
+        "relationship."
+    )
+
 else:
     st.info("Upload the Sephora product CSV file to get started.")
